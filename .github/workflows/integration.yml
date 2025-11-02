@@ -1,0 +1,83 @@
+name: Integration Tests
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main, develop]
+    schedule:
+        # Run nightly at 2 AM UTC
+        - cron: "0 2 * * *"
+
+env:
+    FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID }}
+    GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+    GCS_BUCKET: ${{ secrets.GCS_BUCKET }}
+    GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+
+jobs:
+    integration-tests:
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' || github.event_name == 'schedule'
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v2
+
+            - name: Set up Python
+              run: uv venv
+              env:
+                  VIRTUAL_ENV: .venv
+
+            - name: Sync dependencies
+              run: uv sync --all-groups
+              env:
+                  VIRTUAL_ENV: .venv
+
+            - name: Run integration tests
+              run: uv run pytest tests/integration/ -v --tb=short
+              env:
+                  VIRTUAL_ENV: .venv
+
+            - name: Upload integration test results
+              if: always()
+              uses: actions/upload-artifact@v3
+              with:
+                  name: integration-test-results
+                  path: .pytest_cache/
+
+    sandbox-tests:
+        runs-on: ubuntu-latest
+        # Only run on schedule or manual trigger
+        if: github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+
+        steps:
+            - uses: actions/checkout@v4
+
+            - name: Install uv
+              uses: astral-sh/setup-uv@v2
+
+            - name: Set up Python
+              run: uv venv
+              env:
+                  VIRTUAL_ENV: .venv
+
+            - name: Sync dependencies
+              run: uv sync --all-groups
+              env:
+                  VIRTUAL_ENV: .venv
+
+            - name: Run sandbox tests
+              run: uv run pytest tests/ -m sandbox -v --tb=short
+              env:
+                  VIRTUAL_ENV: .venv
+                  FIREBASE_EMULATOR_HOST: localhost:8080
+
+            - name: Upload sandbox test results
+              if: always()
+              uses: actions/upload-artifact@v3
+              with:
+                  name: sandbox-test-results
+                  path: .pytest_cache/
