@@ -6,4 +6,4 @@ __version__ = "0.1.0"
 __author__ = "Shipping Agent Team"
 __description__ = "AI-powered PDA/FDA quotation generation system"
 
-__all__ = ["__version__", "__author__"]
+__all__ = ["__author__", "__version__"]
